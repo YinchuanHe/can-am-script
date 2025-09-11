@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage, AutomationState } from '@/lib/storage';
 import { CourtAPI } from '@/lib/court-api';
+import { cronService } from '@/lib/cron-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,8 +74,13 @@ export async function POST(request: NextRequest) {
       isActive: true
     };
 
-    // Step 4: Save state to KV
+    // Step 4: Save state to Redis
     await Storage.saveAutomationState(automationState);
+
+    // Step 5: Start cron service if not already running
+    if (!cronService.isRunning()) {
+      await cronService.start();
+    }
 
     console.log(`Automation started successfully! Session ID: ${sessionId}`);
     console.log(`Will run until: ${endTime.toISOString()}`);

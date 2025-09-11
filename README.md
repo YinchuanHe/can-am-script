@@ -7,15 +7,16 @@ An automated system for managing court reservations with continuous rotation of 
 - 🏸 **Automated Court Reservations**: Creates 12 users and manages court bookings
 - ⏰ **30-Minute Rotations**: Automatically rotates user groups every 30 minutes
 - 📱 **Mobile-Friendly**: Optimized for iPhone control
-- 🤖 **Serverless**: Runs completely on Vercel with KV storage
+- 🤖 **Persistent Server**: Runs on Railway with Redis storage
 - 🔄 **Continuous Operation**: Set duration and let it run autonomously
 
 ## System Architecture
 
 - **Frontend**: Next.js with real-time status monitoring
-- **Backend**: Serverless API routes with Vercel KV storage
-- **Automation**: Vercel Cron Jobs for 30-minute rotations
+- **Backend**: Node.js server with Redis storage
+- **Automation**: Built-in cron service for 30-minute rotations
 - **User Management**: Automatic user creation, approval, and rotation
+- **Database**: Redis for session state and user data
 
 ## API Endpoints
 
@@ -23,7 +24,7 @@ An automated system for managing court reservations with continuous rotation of 
 - `/api/status` - Get current automation status
 - `/api/stop-automation` - Stop running automation
 - `/api/list-courts` - Fetch available courts
-- `/api/cron/rotate-reservation` - Handle automated rotations (cron)
+- Built-in cron service handles rotations automatically
 
 ## User Flow
 
@@ -42,6 +43,42 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-## Deployment
+## Deployment on Railway
 
-See the step-by-step deployment guide below for complete setup instructions including Vercel KV and Cron configuration.
+### Quick Deploy
+
+1. **Create Railway Account** at [railway.app](https://railway.app)
+2. **Connect GitHub** repository `YinchuanHe/can-am-script`
+3. **Deploy** - Railway automatically:
+   - Detects Next.js app
+   - Provisions Redis database
+   - Sets up environment variables
+   - Deploys with custom server
+4. **Get URL** from Railway dashboard
+
+### Environment Variables (Auto-configured)
+
+- `REDIS_URL` - Automatically set by Railway Redis
+- `PORT` - Automatically set by Railway
+
+### Features
+
+✅ **Real persistent server** (not serverless functions)  
+✅ **Built-in 30-minute cron** (no external dependencies)  
+✅ **Redis database included** (no extra setup)  
+✅ **$5/month free credit** covers this app  
+✅ **Auto-deploy on git push**  
+
+### Manual Setup (if needed)
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login and deploy
+railway login
+railway link
+railway up
+```
+
+Your app will be live with full cron automation! 🎉

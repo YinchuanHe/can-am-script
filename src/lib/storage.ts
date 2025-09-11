@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 
 export interface User {
   phoneNumber: string;
@@ -27,6 +27,22 @@ export interface ReservationStatus {
   timeRemaining: string;
 }
 
+// Redis connection singleton
+let redis: Redis | null = null;
+
+function getRedis(): Redis {
+  if (!redis) {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    redis = new Redis(redisUrl, {
+      retryDelayOnFailover: 100,
+      retryDelayOnFailure: 50,
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    });
+  }
+  return redis;
+}
+
 export class Storage {
   private static SESSION_KEY = 'automation:session';
   private static STATE_KEY = (sessionId: string) => `automation:state:${sessionId}`;
@@ -34,8 +50,11 @@ export class Storage {
 
   static async saveAutomationState(state: AutomationState): Promise<void> {
     try {
-      await kv.set(this.STATE_KEY(state.sessionId), state, { ex: this.TTL });
-      await kv.set(this.SESSION_KEY, state.sessionId, { ex: this.TTL });
+      const client = getRedis();
+      const stateStr = JSON.stringify(state);
+      
+      await client.setex(this.STATE_KEY(state.sessionId), this.TTL, stateStr);
+      await client.setex(this.SESSION_KEY, this.TTL, state.sessionId);
     } catch (error) {
       console.error('Error saving automation state:', error);
       throw new Error('Failed to save automation state');
@@ -44,11 +63,14 @@ export class Storage {
 
   static async getAutomationState(): Promise<AutomationState | null> {
     try {
-      const sessionId = await kv.get<string>(this.SESSION_KEY);
+      const client = getRedis();
+      const sessionId = await client.get(this.SESSION_KEY);
       if (!sessionId) return null;
 
-      const state = await kv.get<AutomationState>(this.STATE_KEY(sessionId));
-      return state;
+      const stateStr = await client.get(this.STATE_KEY(sessionId));
+      if (!stateStr) return null;
+
+      return JSON.parse(stateStr) as AutomationState;
     } catch (error) {
       console.error('Error getting automation state:', error);
       return null;
@@ -57,8 +79,11 @@ export class Storage {
 
   static async getAutomationStateById(sessionId: string): Promise<AutomationState | null> {
     try {
-      const state = await kv.get<AutomationState>(this.STATE_KEY(sessionId));
-      return state;
+      const client = getRedis();
+      const stateStr = await client.get(this.STATE_KEY(sessionId));
+      if (!stateStr) return null;
+
+      return JSON.parse(stateStr) as AutomationState;
     } catch (error) {
       console.error('Error getting automation state by ID:', error);
       return null;
@@ -67,17 +92,19 @@ export class Storage {
 
   static async deleteAutomationState(sessionId?: string): Promise<void> {
     try {
+      const client = getRedis();
+      
       if (!sessionId) {
-        const currentSessionId = await kv.get<string>(this.SESSION_KEY);
+        const currentSessionId = await client.get(this.SESSION_KEY);
         if (currentSessionId) {
           sessionId = currentSessionId;
         }
       }
 
       if (sessionId) {
-        await kv.del(this.STATE_KEY(sessionId));
+        await client.del(this.STATE_KEY(sessionId));
       }
-      await kv.del(this.SESSION_KEY);
+      await client.del(this.SESSION_KEY);
     } catch (error) {
       console.error('Error deleting automation state:', error);
       throw new Error('Failed to delete automation state');
