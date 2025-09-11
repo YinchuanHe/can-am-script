@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Court Reservation Automation System
 
-## Getting Started
+An automated system for managing court reservations with continuous rotation of user groups.
 
-First, run the development server:
+## Features
+
+- 🏸 **Automated Court Reservations**: Creates 12 users and manages court bookings
+- ⏰ **30-Minute Rotations**: Automatically rotates user groups every 30 minutes
+- 📱 **Mobile-Friendly**: Optimized for iPhone control
+- 🤖 **Serverless**: Runs completely on Vercel with KV storage
+- 🔄 **Continuous Operation**: Set duration and let it run autonomously
+
+## System Architecture
+
+- **Frontend**: Next.js with real-time status monitoring
+- **Backend**: Serverless API routes with Vercel KV storage
+- **Automation**: Vercel Cron Jobs for 30-minute rotations
+- **User Management**: Automatic user creation, approval, and rotation
+
+## API Endpoints
+
+- `/api/start-automation` - Initialize automation with court and duration
+- `/api/status` - Get current automation status
+- `/api/stop-automation` - Stop running automation
+- `/api/list-courts` - Fetch available courts
+- `/api/cron/rotate-reservation` - Handle automated rotations (cron)
+
+## User Flow
+
+1. **Setup**: Creates 12 users with random phone numbers
+2. **Initial Reservation**: First 4 users book the court
+3. **Waitlist**: Remaining 8 users join waitlist in groups of 4
+4. **Rotation**: Every 30 minutes, groups rotate (court → waitlist → court)
+5. **Duration**: Continues for specified hours, then automatically stops
+
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the step-by-step deployment guide below for complete setup instructions including Vercel KV and Cron configuration.
