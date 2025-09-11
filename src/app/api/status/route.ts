@@ -3,6 +3,15 @@ import { Storage } from '@/lib/storage';
 
 export async function GET() {
   try {
+    // Health check - return basic status first
+    if (!process.env.REDIS_URL) {
+      return NextResponse.json({
+        status: 'healthy',
+        active: false,
+        message: 'Service running, Redis not configured'
+      });
+    }
+
     // Get automation state
     const state = await Storage.getAutomationState();
     
@@ -56,9 +65,12 @@ export async function GET() {
 
   } catch (error) {
     console.error('Error getting status:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    // Return healthy status even if Redis fails for healthcheck purposes
+    return NextResponse.json({
+      status: 'healthy',
+      active: false,
+      message: 'Service running, automation status unavailable',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }

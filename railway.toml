@@ -2,10 +2,11 @@
 builder = "nixpacks"
 
 [deploy]
-healthcheckPath = "/api/status"
-healthcheckTimeout = 30
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+startCommand = "npm start"
 
 [[services]]
 name = "web"

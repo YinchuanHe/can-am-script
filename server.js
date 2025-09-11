@@ -23,16 +23,19 @@ app.prepare().then(() => {
   .listen(port, () => {
     console.log(`🚀 Ready on http://${hostname}:${port}`);
     
-    // Start the cron service for automation rotations
+    // Start the cron service for automation rotations (with delay to allow Redis to connect)
     if (!dev) {
-      console.log('🕒 Starting cron service...');
-      // Dynamic import for production build
-      import('./src/lib/cron-service.js').then(({ cronService }) => {
-        cronService.start().catch(console.error);
-      }).catch(() => {
-        // Fallback: cron service will be started when first automation starts
-        console.log('Cron service will start with first automation');
-      });
+      console.log('🕒 Waiting 5 seconds before starting cron service...');
+      setTimeout(() => {
+        console.log('🕒 Starting cron service...');
+        // Dynamic import for production build
+        import('./src/lib/cron-service.js').then(({ cronService }) => {
+          cronService.start().catch(console.error);
+        }).catch((err) => {
+          // Fallback: cron service will be started when first automation starts
+          console.log('Cron service will start with first automation:', err.message);
+        });
+      }, 5000);
     }
   });
 });

@@ -32,8 +32,28 @@ let redis: Redis | null = null;
 
 function getRedis(): Redis {
   if (!redis) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    redis = new Redis(redisUrl);
+    const redisUrl = process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL || 'redis://localhost:6379';
+    console.log('Connecting to Redis:', redisUrl ? 'URL provided' : 'No Redis URL, using localhost');
+    
+    redis = new Redis(redisUrl, {
+      retryDelayOnFailover: 100,
+      retryDelayOnClusterDown: 300,
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+      // Handle connection errors gracefully
+      onFailover: (err) => {
+        console.log('Redis failover:', err.message);
+      },
+    });
+
+    // Handle connection errors
+    redis.on('error', (err) => {
+      console.log('Redis connection error:', err.message);
+    });
+
+    redis.on('connect', () => {
+      console.log('Redis connected successfully');
+    });
   }
   return redis;
 }
