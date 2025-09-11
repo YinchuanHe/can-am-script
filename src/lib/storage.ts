@@ -36,14 +36,8 @@ function getRedis(): Redis {
     console.log('Connecting to Redis:', redisUrl ? 'URL provided' : 'No Redis URL, using localhost');
     
     redis = new Redis(redisUrl, {
-      retryDelayOnFailover: 100,
-      retryDelayOnClusterDown: 300,
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-      // Handle connection errors gracefully
-      onFailover: (err) => {
-        console.log('Redis failover:', err.message);
-      },
     });
 
     // Handle connection errors
