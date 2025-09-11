@@ -40,7 +40,7 @@ export default function Home() {
   useEffect(() => {
     loadCourts();
     checkAutomationStatus();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCourts = async () => {
     try {

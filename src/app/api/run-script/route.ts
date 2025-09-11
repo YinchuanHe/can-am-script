@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // This is a deprecated endpoint - use /api/start-automation instead
-export async function POST(request: NextRequest) {
+export async function POST() {
   return NextResponse.json(
     { 
       error: 'This endpoint is deprecated. Use /api/start-automation instead.',

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const BASE_URL = 'https://queuesystem-be.onrender.com/api';
 const ADMIN_PASSWORD = 'canamadmin';
@@ -18,7 +18,7 @@ const DEFAULT_HEADERS = {
   'Referer': REFERER
 };
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const response = await fetch(`${BASE_URL}/courts/all`, {
       method: 'GET',
@@ -36,7 +36,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the court data to match our frontend interface
-    const courts = data.courts.map((court: any) => ({
+    const courts = data.courts.map((court: {
+      _id: string;
+      name: string;
+      courtNumber: number;
+      isVisible: boolean;
+      isAvailable: boolean;
+      waitlistCount: number;
+    }) => ({
       id: court._id,
       name: court.name,
       courtNumber: court.courtNumber,

@@ -46,7 +46,7 @@ export interface ReservationResponse {
       startTime: string;
       endTime: string;
     };
-    waitlist: any[];
+    waitlist: unknown[];
     isAvailable: boolean;
     waitlistCount: number;
     timeToAvailable: number;

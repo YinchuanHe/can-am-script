@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Storage } from '@/lib/storage';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get automation state
     const state = await Storage.getAutomationState();

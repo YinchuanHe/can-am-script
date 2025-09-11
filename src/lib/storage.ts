@@ -33,12 +33,7 @@ let redis: Redis | null = null;
 function getRedis(): Redis {
   if (!redis) {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    redis = new Redis(redisUrl, {
-      retryDelayOnFailover: 100,
-      retryDelayOnFailure: 50,
-      maxRetriesPerRequest: 3,
-      lazyConnect: true,
-    });
+    redis = new Redis(redisUrl);
   }
   return redis;
 }

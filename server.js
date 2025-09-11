@@ -26,8 +26,12 @@ app.prepare().then(() => {
     // Start the cron service for automation rotations
     if (!dev) {
       console.log('🕒 Starting cron service...');
+      // Dynamic import for production build
       import('./src/lib/cron-service.js').then(({ cronService }) => {
         cronService.start().catch(console.error);
+      }).catch(() => {
+        // Fallback: cron service will be started when first automation starts
+        console.log('Cron service will start with first automation');
       });
     }
   });
