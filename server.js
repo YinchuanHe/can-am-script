@@ -13,7 +13,7 @@ app.prepare().then(async () => {
   // Check Redis connection on startup
   try {
     console.log('🔍 Checking Redis connection...');
-    const { checkRedisConnection } = await import('./src/lib/redis-check.js');
+    const { checkRedisConnection } = require('./src/lib/redis-check.cjs');
     const redisStatus = await checkRedisConnection();
     
     if (redisStatus.connected) {
@@ -53,13 +53,16 @@ app.prepare().then(async () => {
       console.log('🕒 Waiting 5 seconds before starting cron service...');
       setTimeout(() => {
         console.log('🕒 Starting cron service...');
-        // Dynamic import for production build
-        import('./src/lib/cron-service.js').then(({ cronService }) => {
-          cronService.start().catch(console.error);
-        }).catch((err) => {
-          // Fallback: cron service will be started when first automation starts
+        // Try to start cron service - it will be started when first automation starts if this fails
+        try {
+          import('./src/lib/cron-service.ts').then((module) => {
+            module.cronService.start().catch(console.error);
+          }).catch((err) => {
+            console.log('Cron service will start with first automation:', err.message);
+          });
+        } catch (err) {
           console.log('Cron service will start with first automation:', err.message);
-        });
+        }
       }, 5000);
     }
   });
