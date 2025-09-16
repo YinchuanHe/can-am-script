@@ -17,7 +17,8 @@ app.prepare().then(async () => {
     const redisStatus = await checkRedisConnection();
     
     if (redisStatus.connected) {
-      console.log(`✅ Redis connected successfully (${redisStatus.host}:${redisStatus.port}) - ${redisStatus.responseTime}ms`);
+      const attemptText = redisStatus.attempt > 1 ? ` on attempt ${redisStatus.attempt}` : '';
+      console.log(`✅ Redis connected successfully (${redisStatus.host}:${redisStatus.port}) - ${redisStatus.responseTime}ms${attemptText}`);
     } else {
       console.warn(`⚠️ Redis connection failed: ${redisStatus.error} - ${redisStatus.responseTime}ms`);
       if (process.env.REQUIRE_REDIS === 'true') {
