@@ -48,22 +48,9 @@ app.prepare().then(async () => {
   .listen(port, () => {
     console.log(`🚀 Ready on http://${hostname}:${port}`);
     
-    // Start the cron service for automation rotations (with delay to allow Redis to connect)
+    // Note: Cron service will automatically start when the first automation is created
     if (!dev) {
-      console.log('🕒 Waiting 5 seconds before starting cron service...');
-      setTimeout(() => {
-        console.log('🕒 Starting cron service...');
-        // Try to start cron service - it will be started when first automation starts if this fails
-        try {
-          import('./src/lib/cron-service.ts').then((module) => {
-            module.cronService.start().catch(console.error);
-          }).catch((err) => {
-            console.log('Cron service will start with first automation:', err.message);
-          });
-        } catch (err) {
-          console.log('Cron service will start with first automation:', err.message);
-        }
-      }, 5000);
+      console.log('📋 Cron service will start with first automation');
     }
   });
 });
