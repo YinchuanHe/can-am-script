@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { checkRedisConnection, RedisConnectionStatus } from './redis-check';
 
 export interface User {
   phoneNumber: string;
@@ -182,5 +183,9 @@ export class Storage {
 
   static generateSessionId(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  static async testRedisConnection(): Promise<RedisConnectionStatus> {
+    return await checkRedisConnection();
   }
 }
