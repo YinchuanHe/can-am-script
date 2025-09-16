@@ -72,7 +72,7 @@ function getRedis(): Redis {
 export class Storage {
   private static SESSION_KEY = 'automation:session';
   private static STATE_KEY = (sessionId: string) => `automation:state:${sessionId}`;
-  private static TTL = 24 * 60 * 60; // 24 hours in seconds
+  private static TTL = 6 * 60 * 60; // 6 hours in seconds
 
   static async saveAutomationState(state: AutomationState): Promise<void> {
     try {

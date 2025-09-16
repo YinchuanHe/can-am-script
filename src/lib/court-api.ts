@@ -239,25 +239,53 @@ export class CourtAPI {
     console.log(`Need ${count} users for automation...`);
     
     try {
-      // First, try to get existing users
-      const existingUsers = await this.fetchExistingUsers();
+      // First, check Redis for existing approved users from previous automations
+      const { Storage } = await import('./storage');
+      const existingState = await Storage.getAutomationState();
       
-      if (existingUsers.length >= count) {
-        console.log(`Using ${count} existing approved users`);
-        return existingUsers.slice(0, count);
+      if (existingState?.users) {
+        // Filter for approved, non-expired users (6-hour expiration)
+        const now = new Date();
+        const validUsers = existingState.users.filter(user => {
+          if (!user.isApproved) return false;
+          if (!user.expiresAt) return false;
+          const expiresAt = new Date(user.expiresAt);
+          return expiresAt > now;
+        });
+
+        if (validUsers.length >= count) {
+          console.log(`Using ${count} existing approved users from Redis (${validUsers.length} available)`);
+          return validUsers.slice(0, count);
+        }
+        
+        console.log(`Found ${validUsers.length} valid users in Redis, need ${count - validUsers.length} more`);
       }
       
-      // If not enough existing users, create the difference
-      const needed = count - existingUsers.length;
-      console.log(`Found ${existingUsers.length} existing users, creating ${needed} new users`);
+      // If not enough users in Redis, create new batch of 12 users with 6-hour expiration
+      console.log('Creating new batch of 12 users with 6-hour expiration...');
+      const newUsers = await this.createAndApproveUsers(12);
       
-      const newUsers = await this.createAndApproveUsers(needed);
+      // Set 6-hour expiration on newly created users
+      const sixHoursFromNow = new Date(Date.now() + 6 * 60 * 60 * 1000);
+      newUsers.forEach(user => {
+        user.expiresAt = sixHoursFromNow.toISOString();
+      });
       
-      return [...existingUsers, ...newUsers];
+      console.log(`Created ${newUsers.length} new users with expiration: ${sixHoursFromNow.toISOString()}`);
+      return newUsers.slice(0, count);
+      
     } catch (error) {
       console.error('Error in reuseOrCreateUsers, falling back to creating all new users:', error);
-      // Fallback to original behavior if fetching existing users fails
-      return await this.createAndApproveUsers(count);
+      // Fallback to original behavior if Redis check fails
+      const fallbackUsers = await this.createAndApproveUsers(count);
+      
+      // Set 6-hour expiration on fallback users
+      const sixHoursFromNow = new Date(Date.now() + 6 * 60 * 60 * 1000);
+      fallbackUsers.forEach(user => {
+        user.expiresAt = sixHoursFromNow.toISOString();
+      });
+      
+      return fallbackUsers;
     }
   }
 
