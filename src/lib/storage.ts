@@ -40,6 +40,7 @@ function getRedis(): Redis {
     redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
+      family: 0  // Enable dual-stack (IPv4 + IPv6) DNS resolution for Railway
     });
 
     // Handle connection errors

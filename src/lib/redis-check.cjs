@@ -12,6 +12,11 @@ async function checkRedisConnection(timeout = 5000, maxRetries = 3) {
     let redis = null;
 
     try {
+      if (attempt === 1 && process.env.RAILWAY_ENVIRONMENT) {
+        console.log('⏳ Waiting 3 seconds for Railway DNS to be ready...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
       if (attempt > 1) {
         console.log(`🔄 Redis connection attempt ${attempt}/${maxRetries}...`);
       }
@@ -20,6 +25,7 @@ async function checkRedisConnection(timeout = 5000, maxRetries = 3) {
         connectTimeout: timeout,
         lazyConnect: true,
         maxRetriesPerRequest: 1,
+        family: 0  // Enable dual-stack (IPv4 + IPv6) DNS resolution for Railway
       });
 
       await redis.connect();
