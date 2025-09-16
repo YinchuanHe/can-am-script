@@ -38,8 +38,8 @@ function getRedis(): Redis {
     console.log('Connecting to Redis:', redisUrl ? 'URL provided' : 'No Redis URL, using localhost');
     
     // Add delay for Railway DNS on first connection
-    if (process.env.RAILWAY_ENVIRONMENT && redisUrl.includes('railway.internal')) {
-      console.log('⏳ Waiting for Railway DNS before creating Redis connection...');
+    if (redisUrl.includes('railway.internal')) {
+      console.log('⏳ Waiting 3 seconds for Railway DNS before creating Redis connection...');
       const start = Date.now();
       while (Date.now() - start < 3000) {
         // Block until DNS is ready

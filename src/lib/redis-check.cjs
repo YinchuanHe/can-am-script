@@ -12,7 +12,7 @@ async function checkRedisConnection(timeout = 5000, maxRetries = 3) {
     let redis = null;
 
     try {
-      if (attempt === 1 && process.env.RAILWAY_ENVIRONMENT) {
+      if (attempt === 1 && redisUrl.includes('railway.internal')) {
         console.log('⏳ Waiting 3 seconds for Railway DNS to be ready...');
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
