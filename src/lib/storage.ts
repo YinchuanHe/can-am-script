@@ -5,7 +5,8 @@ export interface User {
   animalName: string;
   isApproved: boolean;
   createdAt: string;
-  createdAtISO: string;
+  createdAtISO?: string;
+  expiresAt?: string;
 }
 
 export interface AutomationState {

@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting automation for court ${courtId}, duration: ${durationHours} hours`);
 
-    // Step 1: Create and approve users
-    console.log('Creating and approving 12 users...');
-    const users = await CourtAPI.createAndApproveUsers(12);
+    // Step 1: Reuse existing users or create new ones if needed
+    console.log('Getting 12 users for automation...');
+    const users = await CourtAPI.reuseOrCreateUsers(12);
     
     if (users.length < 12) {
       return NextResponse.json(

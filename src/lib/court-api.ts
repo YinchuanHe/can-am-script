@@ -53,6 +53,12 @@ export interface ReservationResponse {
   };
 }
 
+export interface ExistingUsersResponse {
+  success: boolean;
+  activeUsers: Record<string, User>;
+  idleUsers: Record<string, User>;
+}
+
 export class CourtAPI {
   static generateRandomPhoneNumber(): string {
     // Generate random 5-digit phone number
@@ -190,6 +196,69 @@ export class CourtAPI {
     await this.reserveCourt(courtId, thirdGroup, 'full', 'queue');
 
     return reservation;
+  }
+
+  static async fetchExistingUsers(): Promise<User[]> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/users`, {
+        method: 'GET',
+        headers: DEFAULT_HEADERS
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`);
+      }
+
+      const data: ExistingUsersResponse = await response.json();
+      
+      if (!data.success) {
+        throw new Error('API returned unsuccessful response');
+      }
+
+      // Combine active and idle users, filter for approved and non-expired
+      const allUsers = [
+        ...Object.values(data.activeUsers),
+        ...Object.values(data.idleUsers)
+      ];
+
+      const now = new Date();
+      const approvedUsers = allUsers.filter(user => {
+        const expiresAt = new Date(user.expiresAt || '');
+        return user.isApproved && expiresAt > now;
+      });
+
+      console.log(`Found ${approvedUsers.length} approved, non-expired users`);
+      return approvedUsers;
+    } catch (error) {
+      console.error('Error fetching existing users:', error);
+      throw new Error('Failed to fetch existing users');
+    }
+  }
+
+  static async reuseOrCreateUsers(count: number = 12): Promise<User[]> {
+    console.log(`Need ${count} users for automation...`);
+    
+    try {
+      // First, try to get existing users
+      const existingUsers = await this.fetchExistingUsers();
+      
+      if (existingUsers.length >= count) {
+        console.log(`Using ${count} existing approved users`);
+        return existingUsers.slice(0, count);
+      }
+      
+      // If not enough existing users, create the difference
+      const needed = count - existingUsers.length;
+      console.log(`Found ${existingUsers.length} existing users, creating ${needed} new users`);
+      
+      const newUsers = await this.createAndApproveUsers(needed);
+      
+      return [...existingUsers, ...newUsers];
+    } catch (error) {
+      console.error('Error in reuseOrCreateUsers, falling back to creating all new users:', error);
+      // Fallback to original behavior if fetching existing users fails
+      return await this.createAndApproveUsers(count);
+    }
   }
 
   static async rotateReservation(courtId: string, users: User[], currentGroup: number): Promise<number> {
