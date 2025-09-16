@@ -37,10 +37,24 @@ function getRedis(): Redis {
     const redisUrl = process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL || 'redis://localhost:6379';
     console.log('Connecting to Redis:', redisUrl ? 'URL provided' : 'No Redis URL, using localhost');
     
+    // Add delay for Railway DNS on first connection
+    if (process.env.RAILWAY_ENVIRONMENT && redisUrl.includes('railway.internal')) {
+      console.log('⏳ Waiting for Railway DNS before creating Redis connection...');
+      const start = Date.now();
+      while (Date.now() - start < 3000) {
+        // Block until DNS is ready
+      }
+    }
+    
     redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-      family: 0  // Enable dual-stack (IPv4 + IPv6) DNS resolution for Railway
+      family: 0,  // Enable dual-stack (IPv4 + IPv6) DNS resolution for Railway
+      enableReadyCheck: true,
+      retryStrategy: (times) => {
+        if (times > 3) return null;
+        return Math.min(times * 100, 2000);
+      }
     });
 
     // Handle connection errors
