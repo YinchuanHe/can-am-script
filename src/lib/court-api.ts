@@ -185,12 +185,20 @@ export class CourtAPI {
     
     const reservation = await this.reserveCourt(courtId, firstGroup, 'full', 'queue');
 
+    // Wait 1 second for court API to process the first group
+    console.log('Waiting 1 second for API to process...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Add remaining users to waitlist in groups of 4
     const secondGroup = users.slice(4, 8).map(u => u.animalName);
     const thirdGroup = users.slice(8, 12).map(u => u.animalName);
 
     console.log(`Adding second group to waitlist: ${secondGroup.join(', ')}`);
     await this.reserveCourt(courtId, secondGroup, 'full', 'queue');
+
+    // Wait 1 second for court API to process the second group
+    console.log('Waiting 1 second for API to process...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log(`Adding third group to waitlist: ${thirdGroup.join(', ')}`);
     await this.reserveCourt(courtId, thirdGroup, 'full', 'queue');
@@ -303,6 +311,10 @@ export class CourtAPI {
     console.log(`Rotating to group ${nextGroup}: ${nextGroupUsers.join(', ')}`);
     
     try {
+      // Wait 500ms before making rotation request to ensure API is ready
+      console.log('Waiting 500ms before rotation...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Make reservation with next group (this should move them from waitlist to court)
       await this.reserveCourt(courtId, nextGroupUsers, 'full', 'queue');
       
