@@ -298,7 +298,7 @@ export class CourtAPI {
   }
 
   static async rotateReservation(courtId: string, users: User[], currentGroup: number): Promise<number> {
-    // Calculate the next group (0, 1, 2 rotation)
+    // The court automatically moved to the next group after 30 minutes
     const nextGroup = (currentGroup + 1) % 3;
     const groups = [
       users.slice(0, 4),   // Group 0
@@ -306,19 +306,21 @@ export class CourtAPI {
       users.slice(8, 12)   // Group 2
     ];
 
-    const nextGroupUsers = groups[nextGroup].map(u => u.animalName);
+    // Get the group that just LOST the court (current group)
+    const groupToRequeue = groups[currentGroup].map(u => u.animalName);
     
-    console.log(`Rotating to group ${nextGroup}: ${nextGroupUsers.join(', ')}`);
+    console.log(`Court auto-rotated from group ${currentGroup} to group ${nextGroup}`);
+    console.log(`Adding group ${currentGroup} back to waitlist: ${groupToRequeue.join(', ')}`);
     
     try {
-      // Wait 500ms before making rotation request to ensure API is ready
-      console.log('Waiting 500ms before rotation...');
+      // Wait 500ms before making the request
+      console.log('Waiting 500ms before adding to waitlist...');
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Make reservation with next group (this should move them from waitlist to court)
-      await this.reserveCourt(courtId, nextGroupUsers, 'full', 'queue');
+      // Add the group that LOST the court back to the waitlist
+      await this.reserveCourt(courtId, groupToRequeue, 'full', 'queue');
       
-      // Previous group should automatically be added back to waitlist
+      console.log(`Group ${currentGroup} added back to waitlist`);
       console.log(`Group ${nextGroup} now has the court`);
       
       return nextGroup;
