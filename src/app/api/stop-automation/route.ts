@@ -3,32 +3,59 @@ import { Storage } from '@/lib/storage';
 
 export async function POST() {
   try {
-    const state = await Storage.getAutomationState();
-    
-    if (!state) {
+    // Check for multi-court automation first
+    const multiState = await Storage.getMultiCourtAutomationState();
+    if (multiState) {
+      if (!multiState.isActive) {
+        return NextResponse.json({
+          success: false,
+          message: 'Multi-court automation is not currently active'
+        });
+      }
+
+      // Stop the multi-court automation by deleting the state
+      await Storage.deleteMultiCourtAutomationState(multiState.sessionId);
+
+      console.log(`Multi-court automation stopped manually. Session ID: ${multiState.sessionId}`);
+
       return NextResponse.json({
-        success: false,
-        message: 'No active automation found'
+        success: true,
+        message: `Multi-court automation stopped successfully (${multiState.courts.length} courts)`,
+        sessionId: multiState.sessionId,
+        type: 'multi-court',
+        courtsCount: multiState.courts.length,
+        stoppedAt: new Date().toISOString()
       });
     }
 
-    if (!state.isActive) {
+    // Check for single court automation
+    const singleState = await Storage.getAutomationState();
+    if (singleState) {
+      if (!singleState.isActive) {
+        return NextResponse.json({
+          success: false,
+          message: 'Single court automation is not currently active'
+        });
+      }
+
+      // Stop the single court automation by deleting the state
+      await Storage.deleteAutomationState(singleState.sessionId);
+
+      console.log(`Single court automation stopped manually. Session ID: ${singleState.sessionId}`);
+
       return NextResponse.json({
-        success: false,
-        message: 'Automation is not currently active'
+        success: true,
+        message: 'Single court automation stopped successfully',
+        sessionId: singleState.sessionId,
+        type: 'single-court',
+        stoppedAt: new Date().toISOString()
       });
     }
 
-    // Stop the automation by deleting the state
-    await Storage.deleteAutomationState(state.sessionId);
-
-    console.log(`Automation stopped manually. Session ID: ${state.sessionId}`);
-
+    // No automation found
     return NextResponse.json({
-      success: true,
-      message: 'Automation stopped successfully',
-      sessionId: state.sessionId,
-      stoppedAt: new Date().toISOString()
+      success: false,
+      message: 'No active automation found'
     });
 
   } catch (error) {

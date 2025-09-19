@@ -243,12 +243,30 @@ export class CourtAPI {
     }
   }
 
-  static async reuseOrCreateUsers(count: number = 12): Promise<User[]> {
-    console.log(`Need ${count} users for automation...`);
+  static async reuseOrCreateUsers(count: number = 12, courtId?: string): Promise<User[]> {
+    console.log(`Need ${count} users for automation${courtId ? ` (court ${courtId})` : ''}...`);
     
     try {
-      // First, check Redis for existing approved users from previous automations
+      // For multi-court scenarios, always create fresh users to avoid conflicts
+      // This ensures each court has its own dedicated set of users
       const { Storage } = await import('./storage');
+      const multiCourtState = await Storage.getMultiCourtAutomationState();
+      
+      if (multiCourtState && multiCourtState.isActive) {
+        console.log('Multi-court automation active - creating fresh users to avoid conflicts');
+        const newUsers = await this.createAndApproveUsers(count);
+        
+        // Set 6-hour expiration on newly created users
+        const sixHoursFromNow = new Date(Date.now() + 6 * 60 * 60 * 1000);
+        newUsers.forEach(user => {
+          user.expiresAt = sixHoursFromNow.toISOString();
+        });
+        
+        console.log(`Created ${newUsers.length} fresh users for court ${courtId}`);
+        return newUsers;
+      }
+      
+      // Single court automation - can reuse existing users
       const existingState = await Storage.getAutomationState();
       
       if (existingState?.users) {
@@ -269,9 +287,9 @@ export class CourtAPI {
         console.log(`Found ${validUsers.length} valid users in Redis, need ${count - validUsers.length} more`);
       }
       
-      // If not enough users in Redis, create new batch of 12 users with 6-hour expiration
-      console.log('Creating new batch of 12 users with 6-hour expiration...');
-      const newUsers = await this.createAndApproveUsers(12);
+      // If not enough users in Redis, create new batch of users with 6-hour expiration
+      console.log(`Creating new batch of ${count} users with 6-hour expiration...`);
+      const newUsers = await this.createAndApproveUsers(count);
       
       // Set 6-hour expiration on newly created users
       const sixHoursFromNow = new Date(Date.now() + 6 * 60 * 60 * 1000);

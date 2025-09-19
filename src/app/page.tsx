@@ -13,14 +13,18 @@ interface AutomationStatus {
   active: boolean;
   sessionId?: string;
   courtId?: string;
+  type?: 'single-court' | 'multi-court';
   currentGroup?: number;
   nextRotationTime?: string;
   minutesToNextRotation?: number;
+  totalCourts?: number;
+  courts?: CourtStatus[];
   reservationStatus?: {
     currentGroup: { animalName: string }[];
     waitlistGroup1: { animalName: string }[];
     waitlistGroup2: { animalName: string }[];
     timeRemaining: string;
+    courts?: CourtReservationStatus[];
   };
   userGroups?: {
     group0: string[];
@@ -29,9 +33,33 @@ interface AutomationStatus {
   };
 }
 
+interface CourtStatus {
+  courtId: string;
+  courtNumber: number;
+  currentGroup: number;
+  lastRotationTime: string;
+  nextRotationTime: string;
+  minutesToNextRotation: number;
+  totalUsers: number;
+  userGroups: {
+    group0: string[];
+    group1: string[];
+    group2: string[];
+  };
+}
+
+interface CourtReservationStatus {
+  courtId: string;
+  courtNumber: number;
+  currentGroup: { animalName: string }[];
+  waitlistGroup1: { animalName: string }[];
+  waitlistGroup2: { animalName: string }[];
+  nextRotationTime: string;
+}
+
 export default function Home() {
   const [courts, setCourts] = useState<Court[]>([]);
-  const [selectedCourt, setSelectedCourt] = useState('');
+  const [selectedCourts, setSelectedCourts] = useState<string[]>([]);
   const [duration, setDuration] = useState(2);
   const [status, setStatus] = useState<{ type: 'loading' | 'success' | 'error'; message: string } | null>(null);
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>({ active: false });
@@ -48,9 +76,6 @@ export default function Home() {
       const data = await response.json();
       if (data.success) {
         setCourts(data.courts);
-        if (data.courts.length > 0 && !selectedCourt) {
-          setSelectedCourt(data.courts[0].id);
-        }
       }
     } catch (error) {
       console.error('Error loading courts:', error);
@@ -68,23 +93,25 @@ export default function Home() {
   };
 
   const startAutomation = async () => {
-    if (!selectedCourt) {
-      setStatus({ type: 'error', message: 'Please select a court' });
+    if (selectedCourts.length === 0) {
+      setStatus({ type: 'error', message: 'Please select at least one court' });
       return;
     }
 
-    setStatus({ type: 'loading', message: 'Starting automation...' });
+    const courtCount = selectedCourts.length;
+    setStatus({ type: 'loading', message: `Starting automation for ${courtCount} court${courtCount > 1 ? 's' : ''}...` });
 
     try {
+      const requestBody = courtCount === 1 
+        ? { courtId: selectedCourts[0], durationHours: duration }
+        : { courtIds: selectedCourts, durationHours: duration };
+
       const response = await fetch('/api/start-automation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          courtId: selectedCourt, 
-          durationHours: duration 
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -93,7 +120,15 @@ export default function Home() {
         throw new Error(result.error || 'Failed to start automation');
       }
 
-      setStatus({ type: 'success', message: `✅ Automation started for ${duration} hours!` });
+      const courtNames = selectedCourts.map(courtId => {
+        const court = courts.find(c => c.id === courtId);
+        return court ? `Court ${court.courtNumber}` : courtId;
+      }).join(', ');
+
+      setStatus({ 
+        type: 'success', 
+        message: `✅ Automation started for ${duration} hours on ${courtNames}!` 
+      });
       checkAutomationStatus();
       
       // Start polling for status updates
@@ -154,6 +189,28 @@ export default function Home() {
     };
   }, [refreshInterval]);
 
+  // Helper functions for court selection
+  const toggleCourt = (courtId: string) => {
+    setSelectedCourts(prev => 
+      prev.includes(courtId) 
+        ? prev.filter(id => id !== courtId)
+        : [...prev, courtId]
+    );
+  };
+
+  const selectAllCourts = () => {
+    setSelectedCourts(courts.map(court => court.id));
+  };
+
+  const clearAllCourts = () => {
+    setSelectedCourts([]);
+  };
+
+  const getCourtName = (courtId: string) => {
+    const court = courts.find(c => c.id === courtId);
+    return court ? `Court ${court.courtNumber}` : courtId;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-lg w-full">
@@ -164,20 +221,55 @@ export default function Home() {
         {!automationStatus.active ? (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Court
-              </label>
-              <select
-                value={selectedCourt}
-                onChange={(e) => setSelectedCourt(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {courts.map((court) => (
-                  <option key={court.id} value={court.id}>
-                    {court.name} - {court.description}
-                  </option>
-                ))}
-              </select>
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select Courts ({selectedCourts.length} selected)
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAllCourts}
+                    className="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={clearAllCourts}
+                    className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+              
+              <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                {courts.length === 0 ? (
+                  <div className="text-gray-500 text-sm text-center py-4">Loading courts...</div>
+                ) : (
+                  <div className="space-y-2">
+                    {courts.map((court) => (
+                      <label
+                        key={court.id}
+                        className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCourts.includes(court.id)}
+                          onChange={() => toggleCourt(court.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            Court {court.courtNumber}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {court.description}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -196,10 +288,10 @@ export default function Home() {
 
             <button
               onClick={startAutomation}
-              disabled={!selectedCourt || status?.type === 'loading'}
+              disabled={selectedCourts.length === 0 || status?.type === 'loading'}
               className="w-full py-4 px-6 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors"
             >
-              Start Automation
+              Start Automation {selectedCourts.length > 0 && `(${selectedCourts.length} court${selectedCourts.length > 1 ? 's' : ''})`}
             </button>
           </div>
         ) : (
@@ -209,6 +301,11 @@ export default function Home() {
               <p className="text-sm text-green-700">
                 Session: {automationStatus.sessionId}
               </p>
+              {automationStatus.type === 'multi-court' && (
+                <p className="text-sm text-green-700">
+                  Managing {automationStatus.totalCourts} courts
+                </p>
+              )}
               {automationStatus.reservationStatus && (
                 <p className="text-sm text-green-700">
                   Time remaining: {automationStatus.reservationStatus.timeRemaining}
@@ -216,7 +313,8 @@ export default function Home() {
               )}
             </div>
 
-            {automationStatus.userGroups && (
+            {/* Single Court Display */}
+            {automationStatus.type !== 'multi-court' && automationStatus.userGroups && (
               <div className="space-y-3">
                 <h4 className="font-semibold text-gray-800">Current Status:</h4>
                 
@@ -243,6 +341,44 @@ export default function Home() {
                     Next rotation in: {automationStatus.minutesToNextRotation} minutes
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Multi-Court Display */}
+            {automationStatus.type === 'multi-court' && automationStatus.courts && (
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-800">Courts Status:</h4>
+                
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {automationStatus.courts.map((court) => (
+                    <div key={court.courtId} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h5 className="font-medium text-gray-900">Court {court.courtNumber}</h5>
+                        <span className="text-xs text-gray-500">
+                          Next rotation: {court.minutesToNextRotation}min
+                        </span>
+                      </div>
+                      
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
+                        <p className="font-medium text-blue-800">🏸 On Court (Group {court.currentGroup})</p>
+                        <p className="text-sm text-blue-700">
+                          {court.userGroups[`group${court.currentGroup}` as keyof typeof court.userGroups]?.join(', ')}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {[0, 1, 2].filter(i => i !== court.currentGroup).map((groupNum) => (
+                          <div key={groupNum} className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                            <p className="font-medium text-yellow-800 text-xs">⏳ Group {groupNum}</p>
+                            <p className="text-xs text-yellow-700">
+                              {court.userGroups[`group${groupNum}` as keyof typeof court.userGroups]?.join(', ')}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

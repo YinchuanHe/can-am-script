@@ -21,11 +21,41 @@ export interface AutomationState {
   isActive: boolean;
 }
 
+export interface CourtState {
+  courtId: string;
+  courtNumber: number;
+  users: User[];
+  currentReservationGroup: number; // 0, 1, or 2 (which group of 4 is currently on court)
+  lastRotationTime: string;
+}
+
+export interface MultiCourtAutomationState {
+  sessionId: string;
+  courts: CourtState[];
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
 export interface ReservationStatus {
   currentGroup: User[];
   waitlistGroup1: User[];
   waitlistGroup2: User[];
   nextRotationTime: string;
+  timeRemaining: string;
+}
+
+export interface CourtReservationStatus {
+  courtId: string;
+  courtNumber: number;
+  currentGroup: User[];
+  waitlistGroup1: User[];
+  waitlistGroup2: User[];
+  nextRotationTime: string;
+}
+
+export interface MultiCourtReservationStatus {
+  courts: CourtReservationStatus[];
   timeRemaining: string;
 }
 
@@ -72,6 +102,8 @@ function getRedis(): Redis {
 export class Storage {
   private static SESSION_KEY = 'automation:session';
   private static STATE_KEY = (sessionId: string) => `automation:state:${sessionId}`;
+  private static MULTI_COURT_SESSION_KEY = 'automation:multi:session';
+  private static MULTI_COURT_STATE_KEY = (sessionId: string) => `automation:multi:state:${sessionId}`;
   private static TTL = 6 * 60 * 60; // 6 hours in seconds
 
   static async saveAutomationState(state: AutomationState): Promise<void> {
@@ -202,5 +234,132 @@ export class Storage {
 
   static async testRedisConnection(): Promise<RedisConnectionStatus> {
     return await checkRedisConnection();
+  }
+
+  // Multi-court automation methods
+  static async saveMultiCourtAutomationState(state: MultiCourtAutomationState): Promise<void> {
+    try {
+      const client = getRedis();
+      const stateStr = JSON.stringify(state);
+      
+      await client.setex(this.MULTI_COURT_STATE_KEY(state.sessionId), this.TTL, stateStr);
+      await client.setex(this.MULTI_COURT_SESSION_KEY, this.TTL, state.sessionId);
+    } catch (error) {
+      console.error('Error saving multi-court automation state:', error);
+      throw new Error('Failed to save multi-court automation state');
+    }
+  }
+
+  static async getMultiCourtAutomationState(): Promise<MultiCourtAutomationState | null> {
+    try {
+      const client = getRedis();
+      const sessionId = await client.get(this.MULTI_COURT_SESSION_KEY);
+      if (!sessionId) return null;
+
+      const stateStr = await client.get(this.MULTI_COURT_STATE_KEY(sessionId));
+      if (!stateStr) return null;
+
+      return JSON.parse(stateStr) as MultiCourtAutomationState;
+    } catch (error) {
+      console.error('Error getting multi-court automation state:', error);
+      return null;
+    }
+  }
+
+  static async deleteMultiCourtAutomationState(sessionId?: string): Promise<void> {
+    try {
+      const client = getRedis();
+      
+      if (!sessionId) {
+        const currentSessionId = await client.get(this.MULTI_COURT_SESSION_KEY);
+        if (currentSessionId) {
+          sessionId = currentSessionId;
+        }
+      }
+
+      if (sessionId) {
+        await client.del(this.MULTI_COURT_STATE_KEY(sessionId));
+      }
+      await client.del(this.MULTI_COURT_SESSION_KEY);
+    } catch (error) {
+      console.error('Error deleting multi-court automation state:', error);
+      throw new Error('Failed to delete multi-court automation state');
+    }
+  }
+
+  static async getMultiCourtReservationStatus(): Promise<MultiCourtReservationStatus | null> {
+    try {
+      const state = await this.getMultiCourtAutomationState();
+      if (!state) return null;
+
+      const courts: CourtReservationStatus[] = state.courts.map(court => {
+        const groups = this.getUserGroups(court.users);
+        const currentGroup = groups[court.currentReservationGroup];
+        
+        // Calculate waitlist groups
+        const waitlistGroups = groups.filter((_, index) => index !== court.currentReservationGroup);
+        
+        // Calculate next rotation time (30 minutes from last rotation)
+        const lastRotation = new Date(court.lastRotationTime);
+        const nextRotation = new Date(lastRotation.getTime() + 30 * 60 * 1000);
+        
+        return {
+          courtId: court.courtId,
+          courtNumber: court.courtNumber,
+          currentGroup,
+          waitlistGroup1: waitlistGroups[0] || [],
+          waitlistGroup2: waitlistGroups[1] || [],
+          nextRotationTime: nextRotation.toISOString()
+        };
+      });
+
+      // Calculate time remaining in automation
+      const endTime = new Date(state.endTime);
+      const now = new Date();
+      const timeRemainingMs = endTime.getTime() - now.getTime();
+      const timeRemainingHours = Math.max(0, Math.floor(timeRemainingMs / (1000 * 60 * 60)));
+      const timeRemainingMinutes = Math.max(0, Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60)));
+
+      return {
+        courts,
+        timeRemaining: `${timeRemainingHours}h ${timeRemainingMinutes}m`
+      };
+    } catch (error) {
+      console.error('Error getting multi-court reservation status:', error);
+      return null;
+    }
+  }
+
+  static async isMultiCourtAutomationActive(): Promise<boolean> {
+    try {
+      const state = await this.getMultiCourtAutomationState();
+      if (!state) return false;
+
+      const now = new Date();
+      const endTime = new Date(state.endTime);
+      
+      return state.isActive && now < endTime;
+    } catch (error) {
+      console.error('Error checking multi-court automation status:', error);
+      return false;
+    }
+  }
+
+  static async updateCourtInMultiState(courtId: string, currentGroup: number, lastRotationTime: string): Promise<void> {
+    try {
+      const state = await this.getMultiCourtAutomationState();
+      if (!state) throw new Error('No multi-court automation state found');
+
+      const courtIndex = state.courts.findIndex(court => court.courtId === courtId);
+      if (courtIndex === -1) throw new Error(`Court ${courtId} not found in automation state`);
+
+      state.courts[courtIndex].currentReservationGroup = currentGroup;
+      state.courts[courtIndex].lastRotationTime = lastRotationTime;
+
+      await this.saveMultiCourtAutomationState(state);
+    } catch (error) {
+      console.error('Error updating court in multi-state:', error);
+      throw new Error('Failed to update court state');
+    }
   }
 }
