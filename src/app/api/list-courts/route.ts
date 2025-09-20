@@ -35,25 +35,38 @@ export async function GET() {
       throw new Error('API returned unsuccessful response');
     }
 
-    // Transform the court data to match our frontend interface
-    const courts = data.courts.map((court: {
-      _id: string;
-      name: string;
-      courtNumber: number;
-      isVisible: boolean;
-      isAvailable: boolean;
-      waitlistCount: number;
-    }) => ({
-      id: court._id,
-      name: court.name,
-      courtNumber: court.courtNumber,
-      description: `${court.isVisible ? 'Visible' : 'Hidden'} - ${court.isAvailable ? 'Available' : 'Occupied'} - ${court.waitlistCount} in waitlist`
-    }));
+    // Filter to show only visible and available courts, then transform
+    const filteredCourts = data.courts
+      .filter((court: {
+        _id: string;
+        name: string;
+        courtNumber: number;
+        isVisible: boolean;
+        isAvailable: boolean;
+        waitlistCount: number;
+      }) => court.isVisible && court.isAvailable)
+      .map((court: {
+        _id: string;
+        name: string;
+        courtNumber: number;
+        isVisible: boolean;
+        isAvailable: boolean;
+        waitlistCount: number;
+      }) => ({
+        id: court._id,
+        name: court.name,
+        courtNumber: court.courtNumber,
+        description: court.waitlistCount > 0 
+          ? `${court.waitlistCount} in waitlist` 
+          : 'Available'
+      }));
 
     return NextResponse.json({
       success: true,
-      courts,
-      totalCourts: courts.length
+      courts: filteredCourts,
+      totalCourts: filteredCourts.length,
+      totalAvailableCourts: data.courts.filter((court: any) => court.isVisible && court.isAvailable).length,
+      totalAllCourts: data.courts.length
     });
 
   } catch (error) {
