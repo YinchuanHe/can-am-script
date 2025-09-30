@@ -1,0 +1,483 @@
+openapi: 3.0.0
+info:
+  title: Can-Am Court Reservation API
+  description: Automated court reservation system with rotation management for badminton courts
+  version: 1.0.0
+  contact:
+    name: Can-Am Court Reservation System
+    url: https://can-am.vercel.app/
+
+servers:
+  - url: https://your-railway-app.up.railway.app
+    description: Railway Production Server
+
+paths:
+  /api/list-courts:
+    get:
+      summary: List Available Courts
+      description: Get a list of courts that are visible and available for reservation
+      operationId: listAvailableCourts
+      responses:
+        '200':
+          description: Successfully retrieved available courts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  courts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Court'
+                  totalCourts:
+                    type: integer
+                    description: Number of courts returned
+                    example: 9
+                  totalAvailableCourts:
+                    type: integer
+                    description: Total available courts
+                    example: 9
+                  totalAllCourts:
+                    type: integer
+                    description: Total courts in system
+                    example: 20
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/start-automation:
+    post:
+      summary: Start Court Automation
+      description: Start automated court reservation with user rotation (single court or multi-court)
+      operationId: startAutomation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SingleCourtRequest'
+                - $ref: '#/components/schemas/MultiCourtRequest'
+            examples:
+              singleCourt:
+                summary: Single court automation
+                value:
+                  courtId: "6841fbeda6e050ee8a23c901"
+                  durationHours: 3
+              multiCourt:
+                summary: Multi-court automation
+                value:
+                  courtIds: ["6841fbeda6e050ee8a23c901", "6841fbeda6e050ee8a23c902"]
+                  durationHours: 2
+      responses:
+        '200':
+          description: Automation started successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SingleCourtResponse'
+                  - $ref: '#/components/schemas/MultiCourtResponse'
+        '400':
+          description: Bad request (missing parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Automation already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/stop-automation:
+    post:
+      summary: Stop Running Automation
+      description: Stop any currently running automation (single or multi-court)
+      operationId: stopAutomation
+      responses:
+        '200':
+          description: Automation stopped successfully or no automation was running
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/StopSuccessResponse'
+                  - $ref: '#/components/schemas/StopNotFoundResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/status:
+    get:
+      summary: Get Automation Status
+      description: Get current status of running automation including user groups and timing
+      operationId: getAutomationStatus
+      responses:
+        '200':
+          description: Automation status retrieved successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SingleCourtStatus'
+                  - $ref: '#/components/schemas/MultiCourtStatus'
+                  - $ref: '#/components/schemas/NoAutomationStatus'
+
+components:
+  schemas:
+    Court:
+      type: object
+      properties:
+        id:
+          type: string
+          description: MongoDB ObjectId of the court
+          example: "6841fbeda6e050ee8a23c901"
+        name:
+          type: string
+          example: "Court 11"
+        courtNumber:
+          type: integer
+          example: 11
+        description:
+          type: string
+          example: "Available"
+      required:
+        - id
+        - name
+        - courtNumber
+        - description
+
+    SingleCourtRequest:
+      type: object
+      properties:
+        courtId:
+          type: string
+          description: MongoDB ObjectId of the court to automate
+          example: "6841fbeda6e050ee8a23c901"
+        durationHours:
+          type: integer
+          minimum: 1
+          maximum: 24
+          description: Duration of automation in hours
+          example: 3
+      required:
+        - courtId
+        - durationHours
+
+    MultiCourtRequest:
+      type: object
+      properties:
+        courtIds:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 10
+          description: Array of court IDs to automate
+          example: ["6841fbeda6e050ee8a23c901", "6841fbeda6e050ee8a23c902"]
+        durationHours:
+          type: integer
+          minimum: 1
+          maximum: 24
+          description: Duration of automation in hours
+          example: 2
+      required:
+        - courtIds
+        - durationHours
+
+    SingleCourtResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        sessionId:
+          type: string
+          example: "session_1234567890_abcdef123"
+        message:
+          type: string
+          example: "Automation started for 3 hours"
+        state:
+          $ref: '#/components/schemas/AutomationState'
+        reservation:
+          type: object
+          description: Initial court reservation details
+
+    MultiCourtResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        sessionId:
+          type: string
+          example: "session_1234567890_abcdef123"
+        message:
+          type: string
+          example: "Multi-court automation started for 2 hours on 2 courts"
+        state:
+          $ref: '#/components/schemas/MultiCourtAutomationState'
+        reservations:
+          type: array
+          description: Initial reservations for each court
+
+    AutomationState:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        courtId:
+          type: string
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        currentReservationGroup:
+          type: integer
+          description: Which group (0-2) is currently on court
+          example: 0
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        lastRotationTime:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+
+    MultiCourtAutomationState:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        courts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourtState'
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+
+    CourtState:
+      type: object
+      properties:
+        courtId:
+          type: string
+        courtNumber:
+          type: integer
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        currentReservationGroup:
+          type: integer
+        lastRotationTime:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+          description: 5-digit phone number
+          example: "12345"
+        animalName:
+          type: string
+          description: Unique animal name identifier
+          example: "Uromastyx"
+        isApproved:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          description: 6-hour expiration time
+
+    StopSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Single court automation stopped successfully"
+        sessionId:
+          type: string
+        type:
+          type: string
+          enum: ["single-court", "multi-court"]
+        courtsCount:
+          type: integer
+          description: Only present for multi-court
+        stoppedAt:
+          type: string
+          format: date-time
+
+    StopNotFoundResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "No active automation found"
+
+    SingleCourtStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+          example: true
+        sessionId:
+          type: string
+        courtId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        currentGroup:
+          type: integer
+          description: Currently active group (0-2)
+        lastRotationTime:
+          type: string
+          format: date-time
+        nextRotationTime:
+          type: string
+          format: date-time
+        minutesToNextRotation:
+          type: integer
+          description: Minutes until next rotation
+        totalUsers:
+          type: integer
+          example: 12
+        userGroups:
+          type: object
+          properties:
+            group0:
+              type: array
+              items:
+                type: string
+              description: Animal names in group 0
+            group1:
+              type: array
+              items:
+                type: string
+              description: Animal names in group 1
+            group2:
+              type: array
+              items:
+                type: string
+              description: Animal names in group 2
+
+    MultiCourtStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+          example: true
+        type:
+          type: string
+          example: "multi-court"
+        sessionId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        totalCourts:
+          type: integer
+        courts:
+          type: array
+          items:
+            type: object
+            properties:
+              courtId:
+                type: string
+              courtNumber:
+                type: integer
+              currentGroup:
+                type: integer
+              lastRotationTime:
+                type: string
+                format: date-time
+              nextRotationTime:
+                type: string
+                format: date-time
+              minutesToNextRotation:
+                type: integer
+              totalUsers:
+                type: integer
+              userGroups:
+                type: object
+                properties:
+                  group0:
+                    type: array
+                    items:
+                      type: string
+                  group1:
+                    type: array
+                    items:
+                      type: string
+                  group2:
+                    type: array
+                    items:
+                      type: string
+
+    NoAutomationStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "No automation running"
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+        message:
+          type: string
+          description: User-friendly error message

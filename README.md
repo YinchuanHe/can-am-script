@@ -82,3 +82,42 @@ railway up
 ```
 
 Your app will be live with full cron automation! 🎉
+
+## ChatGPT Mobile Integration
+
+Control your court reservations from anywhere using ChatGPT on your phone! 📱
+
+### Quick Setup
+1. **Deploy to Railway** (you have this already ✅)
+2. **Create Custom GPT** using the provided OpenAPI specification
+3. **Access from ChatGPT mobile app** with natural language commands
+
+### Features
+- 🗣️ **Voice Control**: "Start automation for court 11 for 3 hours"
+- 📊 **Status Checks**: "What's the current automation status?"
+- 🏟️ **Multi-Court**: "Set up automation for courts 11, 12, and 13"
+- ⏹️ **Easy Stop**: "Stop the automation"
+- 📱 **Mobile Native**: Full functionality from ChatGPT iOS/Android app
+
+### Requirements
+- **ChatGPT Plus subscription** (required to create Custom GPTs)
+- **Railway-deployed app** (follow deployment steps above)
+
+### Setup Instructions
+See **[CHATGPT_MOBILE_SETUP.md](./CHATGPT_MOBILE_SETUP.md)** for complete step-by-step instructions.
+
+### Key Files
+- `openapi.yaml` - API specification for Custom GPT Actions
+- `custom-gpt-instructions.md` - GPT configuration and instructions
+- `CHATGPT_MOBILE_SETUP.md` - Complete mobile setup guide
+
+**Example Mobile Usage:**
+```
+You: "Show available courts"
+AI: 🏸 Court 11, 12, 13 are available...
+
+You: "Start automation for court 11 for 3 hours"
+AI: ✅ Starting automation... Groups will rotate every 30 minutes!
+```
+
+Perfect for remote court management! 🎯

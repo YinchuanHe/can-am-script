@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "can-am-court-reservation": {
+      "command": "npm",
+      "args": ["run", "mcp"],
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://localhost:3000/api"
+      }
+    }
+  }
+}
