@@ -78,22 +78,36 @@ function getRedis(): Redis {
     
     redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
-      lazyConnect: true,
+      connectTimeout: 30000,  // 30 second timeout for Railway network
+      lazyConnect: false,  // Connect immediately to catch errors early
       family: 0,  // Enable dual-stack (IPv4 + IPv6) DNS resolution for Railway
       enableReadyCheck: true,
+      enableOfflineQueue: true,
       retryStrategy: (times) => {
-        if (times > 3) return null;
-        return Math.min(times * 100, 2000);
+        if (times > 10) {
+          console.log(`Redis retry limit reached (${times} attempts), giving up`);
+          return null;
+        }
+        const delay = Math.min(times * 200, 3000);
+        console.log(`Redis retry attempt ${times}, waiting ${delay}ms`);
+        return delay;
       }
     });
 
-    // Handle connection errors
+    // Handle connection errors gracefully
     redis.on('error', (err) => {
-      console.log('Redis connection error:', err.message);
+      // Suppress ETIMEDOUT spam, but log other errors
+      if (!err.message.includes('ETIMEDOUT') && !err.message.includes('ECONNREFUSED')) {
+        console.log('Redis connection error:', err.message);
+      }
     });
 
     redis.on('connect', () => {
-      console.log('Redis connected successfully');
+      console.log('✅ Redis connected successfully');
+    });
+
+    redis.on('ready', () => {
+      console.log('✅ Redis is ready for commands');
     });
   }
   return redis;

@@ -9,7 +9,7 @@ export interface RedisConnectionStatus {
   attempt?: number;
 }
 
-export async function checkRedisConnection(timeout: number = 5000, maxRetries: number = 3): Promise<RedisConnectionStatus> {
+export async function checkRedisConnection(timeout: number = 30000, maxRetries: number = 3): Promise<RedisConnectionStatus> {
   const redisUrl = process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL || 'redis://localhost:6379';
   
   // Log the URL being used (mask password for security)
